@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -7,26 +8,38 @@
   <title>Last Drop — Battle Royale</title>
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
   <main id="game">
     <canvas id="screen" aria-label="First-person battle royale game"></canvas>
     <div class="scanlines" aria-hidden="true"></div>
 
     <header class="topbar">
-      <a class="brand" href="#" aria-label="Last Drop home"><span class="brand-mark">L</span><span>LAST<span class="brand-light">DROP</span></span></a>
+      <a class="brand" href="#" aria-label="Last Drop home"><span class="brand-mark">L</span><span>LAST<span
+            class="brand-light">DROP</span></span></a>
       <div class="match-tag"><span class="live-dot"></span> SOLO · ISLAND 07</div>
       <div class="top-right"><span class="signal"><i></i><i></i><i></i><i></i></span><span>LIVE MATCH</span></div>
     </header>
 
     <section class="hud" aria-live="polite">
       <div class="left-hud">
-        <div class="stat-card alive-card"><span class="stat-icon">♟</span><div><span class="stat-label">REMAINING</span><strong id="aliveCount">10</strong></div></div>
-        <div class="stat-card kill-card"><span class="stat-icon">✕</span><div><span class="stat-label">ELIMINATIONS</span><strong id="killCount">00</strong></div></div>
+        <div class="stat-card alive-card"><span class="stat-icon">♟</span>
+          <div><span class="stat-label">REMAINING</span><strong id="aliveCount">10</strong></div>
+        </div>
+        <div class="stat-card kill-card"><span class="stat-icon">✕</span>
+          <div><span class="stat-label">ELIMINATIONS</span><strong id="killCount">00</strong></div>
+        </div>
       </div>
 
-      <div class="zone-card" id="zoneCard"><span class="zone-icon">◉</span><div><span class="stat-label">SAFE ZONE</span><strong id="zoneTimer">01:45</strong></div><span class="zone-status" id="zoneStatus">SHRINKS IN</span></div>
+      <div class="zone-card" id="zoneCard"><span class="zone-icon">◉</span>
+        <div><span class="stat-label">SAFE ZONE</span><strong id="zoneTimer">01:45</strong></div><span
+          class="zone-status" id="zoneStatus">SHRINKS IN</span>
+      </div>
 
-      <div class="right-hud"><div class="map-frame"><canvas id="minimap" width="176" height="176"></canvas><span class="map-label">FIELD MAP <span>› N</span></span></div></div>
+      <div class="right-hud">
+        <div class="map-frame"><canvas id="minimap" width="176" height="176"></canvas><span class="map-label">FIELD MAP
+            <span>› N</span></span></div>
+      </div>
 
       <div class="center-reticle" aria-hidden="true"><span></span><i></i><span></span><b></b></div>
       <div id="hitMarker" class="hit-marker" aria-hidden="true">✕</div>
@@ -34,10 +47,28 @@
 
       <div class="bottom-hud">
         <div class="vitals">
-          <div class="vital-row"><span class="vital-symbol">♥</span><div class="vital-track"><div class="vital-fill health-fill" id="healthFill"></div></div><strong id="healthText">100</strong></div>
-          <div class="vital-row"><span class="vital-symbol armor-symbol">⬟</span><div class="vital-track armor-track"><div class="vital-fill armor-fill" id="armorFill"></div></div><strong id="armorText">50</strong></div>
+          <div class="vital-row"><span class="vital-symbol">♥</span>
+            <div class="vital-track">
+              <div class="vital-fill health-fill" id="healthFill"></div>
+            </div><strong id="healthText">100</strong>
+          </div>
+          <div class="vital-row"><span class="vital-symbol armor-symbol">⬟</span>
+            <div class="vital-track armor-track">
+              <div class="vital-fill armor-fill" id="armorFill"></div>
+            </div><strong id="armorText">50</strong>
+          </div>
         </div>
-        <div class="weapon-card"><div class="weapon-info"><span class="weapon-name">RANGER</span><span class="weapon-type">ASSAULT RIFLE <b>·</b> AUTO</span></div><div class="ammo"><strong id="ammoText">30</strong><span>/ <b id="reserveText">120</b></span><div class="ammo-label">5.56 MM</div></div><div class="weapon-icon" aria-hidden="true"><svg viewBox="0 0 112 52"><path d="M7 21h37l9-8h34v7h16v8h-12l-5 9H62l-8-7H38v8h-9l-5-9H7z"/><path d="M47 21v-8M57 29l-5 15h10l6-14M10 24h14M79 20v-5"/></svg></div></div>
+        <div class="weapon-card">
+          <div class="weapon-info"><span class="weapon-name">RANGER</span><span class="weapon-type">ASSAULT RIFLE
+              <b>·</b> AUTO</span></div>
+          <div class="ammo"><strong id="ammoText">30</strong><span>/ <b id="reserveText">120</b></span>
+            <div class="ammo-label">5.56 MM</div>
+          </div>
+          <div class="weapon-icon" aria-hidden="true"><svg viewBox="0 0 112 52">
+              <path d="M7 21h37l9-8h34v7h16v8h-12l-5 9H62l-8-7H38v8h-9l-5-9H7z" />
+              <path d="M47 21v-8M57 29l-5 15h10l6-14M10 24h14M79 20v-5" />
+            </svg></div>
+        </div>
       </div>
     </section>
 
@@ -47,8 +78,10 @@
         <h1>DROP IN.<br><span>OUTLAST.</span></h1>
         <p class="intro">The circle's closing. Gear up, keep moving, and be the last one standing.</p>
         <button id="startButton" class="primary-button"><span>DEPLOY NOW</span><b>→</b></button>
-        <div class="control-hint"><span>W A S D</span> MOVE <i>·</i> <span>MOUSE</span> AIM <i>·</i> <span>CLICK</span> FIRE</div>
-        <div class="extra-hint"><span>R</span> RELOAD <i>·</i> <span>SHIFT</span> SPRINT <i>·</i> <span>E</span> USE MEDKIT <i>·</i> <span>ESC</span> PAUSE</div>
+        <div class="control-hint"><span>W A S D</span> MOVE <i>·</i> <span>MOUSE</span> AIM <i>·</i> <span>CLICK</span>
+          FIRE</div>
+        <div class="extra-hint"><span>R</span> RELOAD <i>·</i> <span>SHIFT</span> SPRINT <i>·</i> <span>E</span> USE
+          MEDKIT <i>·</i> <span>ESC</span> PAUSE</div>
       </div>
       <div class="menu-corner">SECTOR 07 <span>·</span> WINDWARD ISLANDS</div>
     </section>
@@ -58,7 +91,10 @@
         <div class="eyebrow"><span></span> MATCH COMPLETE</div>
         <h2 id="resultTitle">VICTORY</h2>
         <p class="intro" id="resultMessage">You are the last one standing.</p>
-        <div class="result-stats"><div><span>ELIMINATIONS</span><strong id="finalKills">0</strong></div><div><span>PLACEMENT</span><strong id="finalPlace">#1</strong></div></div>
+        <div class="result-stats">
+          <div><span>ELIMINATIONS</span><strong id="finalKills">0</strong></div>
+          <div><span>PLACEMENT</span><strong id="finalPlace">#1</strong></div>
+        </div>
         <button id="playAgainButton" class="primary-button"><span>PLAY AGAIN</span><b>→</b></button>
       </div>
     </section>
@@ -67,4 +103,5 @@
   </main>
   <script type="module" src="/game3d.js"></script>
 </body>
+
 </html>

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { Sky } from "three/addons/objects/Sky.js";
+import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 
 const canvas = document.querySelector("#screen");
 const minimap = document.querySelector("#minimap");
@@ -502,79 +503,179 @@ function createHumanoid(bot) {
   const boot = new THREE.MeshStandardMaterial({ color: 0x302e26, roughness: .98 });
   const helmet = new THREE.MeshStandardMaterial({ color: bot.helmet, roughness: .8 });
   const dark = new THREE.MeshStandardMaterial({ color: 0x252820, roughness: .82 });
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(.25, .55, 5, 9), vest);
-  torso.position.y = 1.19;
-  torso.castShadow = true;
-  group.add(torso);
-  const shirt = new THREE.Mesh(new THREE.CapsuleGeometry(.28, .62, 5, 8), uniform);
-  shirt.position.y = 1.19;
-  shirt.scale.set(1.04, 1, 1.03);
-  group.add(shirt);
+  const webbing = new THREE.MeshStandardMaterial({ color: 0x34392f, roughness: .94 });
+  const metal = new THREE.MeshStandardMaterial({ color: 0x4a4b42, roughness: .42, metalness: .65 });
+  const skinShadow = new THREE.MeshStandardMaterial({ color: 0x574b3d, roughness: .9 });
+  const parts = {};
 
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.17, 16, 12), skin);
-  head.position.y = 1.74;
-  head.scale.set(.83, 1.1, .94);
-  head.castShadow = true;
+  const part = (name, geometry, material, position, parent = group) => {
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.name = name;
+    mesh.position.set(...position);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    parent.add(mesh);
+    return mesh;
+  };
+
+  const torso = part("torso", new THREE.CapsuleGeometry(.255, .49, 6, 12), uniform, [0, 1.2, 0]);
+  torso.scale.set(1.08, 1, .9);
+  const plate = part("armour plate", new RoundedBoxGeometry(.43, .49, .1, 3, .035), vest, [0, 1.23, .235]);
+  plate.rotation.x = -.04;
+  part("plate carrier upper", new RoundedBoxGeometry(.41, .09, .11, 2, .025), webbing, [0, 1.49, .22]);
+
+  for (const side of [-1, 1]) {
+    part("plate carrier strap", new RoundedBoxGeometry(.075, .38, .07, 2, .024), webbing, [side * .19, 1.47, .15]);
+    const pouchX = side * .255;
+    const pouch = part("magazine pouch", new RoundedBoxGeometry(.14, .18, .13, 2, .018), webbing, [pouchX, 1.12, .25]);
+    pouch.rotation.y = side * -.08;
+    part("pouch flap", new RoundedBoxGeometry(.11, .045, .018, 2, .008), vest, [pouchX, 1.21, .32]);
+    part("radio pouch", new RoundedBoxGeometry(.11, .24, .09, 2, .018), webbing, [side * .27, 1.45, -.01]);
+    const buckle = part("carrier buckle", new THREE.BoxGeometry(.04, .045, .02), metal, [side * .19, 1.46, .22]);
+    buckle.material = metal;
+  }
+  part("belt", new THREE.CylinderGeometry(.235, .235, .105, 12), webbing, [0, .83, 0]);
+  part("belt buckle", new RoundedBoxGeometry(.12, .09, .035, 2, .015), metal, [0, .84, .235]);
+  part("utility pouch", new RoundedBoxGeometry(.16, .16, .11, 2, .02), webbing, [-.31, .81, .035]);
+  part("holster", new THREE.BoxGeometry(.12, .27, .13), webbing, [.3, .72, 0]);
+  part("backpack body", new RoundedBoxGeometry(.36, .46, .2, 3, .045), dark, [0, 1.2, -.265]);
+  part("backpack lid", new RoundedBoxGeometry(.37, .13, .215, 2, .03), vest, [0, 1.43, -.27]);
+  for (const side of [-1, 1]) {
+    part("pack side pouch", new RoundedBoxGeometry(.11, .23, .15, 2, .025), webbing, [side * .21, 1.14, -.27]);
+    part("pack strap", new RoundedBoxGeometry(.045, .4, .04, 2, .014), vest, [side * .18, 1.2, -.15]);
+  }
+
+  const head = new THREE.Group();
+  head.position.set(0, 1.72, .015);
+  head.name = "head";
   group.add(head);
-  const helmetMesh = new THREE.Mesh(new THREE.SphereGeometry(.19, 16, 10, 0, Math.PI * 2, 0, Math.PI * .58), helmet);
-  helmetMesh.position.y = 1.81;
-  helmetMesh.castShadow = true;
-  group.add(helmetMesh);
-  const helmetRim = new THREE.Mesh(new THREE.TorusGeometry(.155, .018, 5, 16, Math.PI), dark);
-  helmetRim.rotation.x = Math.PI / 2;
-  helmetRim.position.set(0, 1.79, -.015);
-  group.add(helmetRim);
+  part("face", new THREE.SphereGeometry(.15, 20, 14), skin, [0, .015, .018], head).scale.set(.83, 1.07, .85);
+  part("jaw", new THREE.SphereGeometry(.115, 16, 10), skin, [0, -.07, .095], head).scale.set(.8, .52, .64);
+  const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x232722, roughness: .32 });
+  const eyeLens = new THREE.MeshStandardMaterial({ color: 0x293a39, roughness: .22, metalness: .18 });
+  for (const side of [-1, 1]) {
+    part("eye", new THREE.SphereGeometry(.022, 8, 6), eyeMaterial, [side * .052, .035, .137], head);
+    part("goggle rim", new THREE.BoxGeometry(.09, .072, .045), metal, [side * .055, .043, .143], head);
+    part("goggle lens", new RoundedBoxGeometry(.069, .047, .012, 2, .009), eyeLens, [side * .055, .043, .17], head);
+  }
+  part("goggle bridge", new THREE.BoxGeometry(.035, .025, .04), webbing, [0, .04, .159], head);
+  part("nose", new THREE.ConeGeometry(.027, .085, 5), skin, [0, -.012, .159], head).rotation.x = Math.PI / 2;
+  part("neck", new THREE.CylinderGeometry(.09, .11, .14, 10), skinShadow, [0, 1.58, 0]);
+  const helmetShell = part("helmet shell", new THREE.SphereGeometry(.195, 20, 14, 0, Math.PI * 2, 0, Math.PI * .57), helmet, [0, 1.82, 0]);
+  helmetShell.scale.set(1.04, .96, 1.08);
+  part("helmet front brim", new RoundedBoxGeometry(.31, .04, .16, 3, .018), helmet, [0, 1.805, .13]).rotation.x = -.12;
+  part("helmet mount", new RoundedBoxGeometry(.07, .1, .07, 2, .014), webbing, [0, 1.86, .2]);
+  for (const side of [-1, 1]) {
+    part("helmet rail", new RoundedBoxGeometry(.17, .035, .04, 2, .012), webbing, [side * .17, 1.77, 0]);
+    part("ear protection", new RoundedBoxGeometry(.07, .12, .08, 3, .02), dark, [side * .181, 1.74, .025]);
+    part("ear pad", new THREE.CylinderGeometry(.047, .047, .022, 12), vest, [side * .22, 1.74, .03]).rotation.z = Math.PI / 2;
+  }
+  const strap = part("helmet chin strap", new THREE.TorusGeometry(.14, .012, 5, 18, Math.PI), webbing, [0, 1.73, .03]);
+  strap.rotation.x = Math.PI / 2;
 
-  const pack = new THREE.Mesh(new THREE.BoxGeometry(.31, .45, .15), dark);
-  pack.position.set(0, 1.22, .27);
-  pack.castShadow = true;
-  group.add(pack);
-  for (let side = -1; side <= 1; side += 2) {
-    const shoulder = new THREE.Mesh(new THREE.SphereGeometry(.135, 10, 8), uniform);
-    shoulder.position.set(side * .29, 1.42, 0);
-    group.add(shoulder);
-    const arm = new THREE.Mesh(new THREE.CapsuleGeometry(.085, .43, 4, 7), uniform);
-    arm.position.set(side * .34, 1.12, -.02);
-    arm.rotation.z = side * -.13;
-    arm.name = side < 0 ? "leftArm" : "rightArm";
-    arm.castShadow = true;
-    group.add(arm);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(.075, 9, 7), skin);
-    hand.position.set(side * .34, .84, -.045);
-    group.add(hand);
+  const hips = part("hips", new RoundedBoxGeometry(.42, .22, .29, 3, .06), pants, [0, .78, 0]);
+  hips.rotation.x = -.02;
 
-    const leg = new THREE.Mesh(new THREE.CapsuleGeometry(.105, .44, 4, 8), pants);
-    leg.position.set(side * .13, .5, 0);
-    leg.name = side < 0 ? "leftLeg" : "rightLeg";
-    leg.castShadow = true;
-    group.add(leg);
-    const bootMesh = new THREE.Mesh(new THREE.BoxGeometry(.19, .14, .34), boot);
-    bootMesh.position.set(side * .13, .14, -.075);
-    bootMesh.castShadow = true;
-    group.add(bootMesh);
+  for (const side of [-1, 1]) {
+    const shoulder = part("shoulder pad", new THREE.SphereGeometry(.135, 14, 10), vest, [side * .29, 1.43, .015]);
+    shoulder.scale.set(1.12, .9, 1.12);
+    part("arm patch", new RoundedBoxGeometry(.09, .1, .025, 2, .02), webbing, [side * .37, 1.39, .04]);
+
+    const armPivot = new THREE.Group();
+    armPivot.name = side < 0 ? "leftArm" : "rightArm";
+    armPivot.position.set(side * .32, 1.4, .015);
+    armPivot.rotation.x = -.84;
+    armPivot.rotation.z = -side * .24;
+    armPivot.userData.walkPose = { x: -.84, z: -side * .24 };
+    group.add(armPivot);
+    const upperArm = part("upper arm", new THREE.CapsuleGeometry(.083, .31, 5, 9), uniform, [0, -.2, .035], armPivot);
+    upperArm.rotation.x = .1;
+    const elbow = part("elbow pad", new THREE.SphereGeometry(.09, 10, 8), vest, [0, -.4, .06], armPivot);
+    elbow.scale.set(1, .82, .9);
+
+    const forearm = new THREE.Group();
+    forearm.position.set(0, -.4, .06);
+    forearm.rotation.x = -.48;
+    forearm.rotation.z = side * .28;
+    armPivot.add(forearm);
+    part("forearm", new THREE.CapsuleGeometry(.065, .29, 5, 8), uniform, [0, -.19, .015], forearm);
+    part("glove cuff", new RoundedBoxGeometry(.13, .09, .11, 2, .022), webbing, [0, -.34, .025], forearm);
+    part("gloved hand", new RoundedBoxGeometry(.105, .13, .09, 3, .033), skinShadow, [0, -.42, .105], forearm);
+    parts[armPivot.name] = armPivot;
+
+    const legPivot = new THREE.Group();
+    legPivot.name = side < 0 ? "leftLeg" : "rightLeg";
+    legPivot.position.set(side * .13, .78, 0);
+    legPivot.userData.walkPose = { x: 0 };
+    group.add(legPivot);
+    part("thigh", new THREE.CapsuleGeometry(.105, .31, 5, 9), pants, [0, -.23, 0], legPivot);
+    const knee = part("knee pad", new RoundedBoxGeometry(.16, .17, .065, 3, .035), vest, [0, -.43, .08], legPivot);
+    knee.rotation.x = -.06;
+    const lowerLeg = new THREE.Group();
+    lowerLeg.name = side < 0 ? "leftCalf" : "rightCalf";
+    lowerLeg.position.set(0, -.47, 0);
+    legPivot.add(lowerLeg);
+    part("calf", new THREE.CapsuleGeometry(.075, .31, 5, 8), pants, [0, -.2, 0], lowerLeg);
+    part("boot", new RoundedBoxGeometry(.19, .15, .33, 3, .036), boot, [0, -.41, .055], lowerLeg);
+    part("boot sole", new RoundedBoxGeometry(.195, .036, .34, 2, .009), dark, [0, -.49, .055], lowerLeg);
+    parts[legPivot.name] = legPivot;
+    parts[lowerLeg.name] = lowerLeg;
   }
 
   const rifle = new THREE.Group();
-  const rifleBody = new THREE.Mesh(new THREE.BoxGeometry(.13, .12, .52), dark);
-  rifleBody.position.set(.12, 1.12, -.3);
-  rifle.add(rifleBody);
-  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.025, .025, .36, 8), dark);
+  rifle.name = "bot rifle";
+  rifle.position.set(.105, 1.17, .34);
+  const rifleBody = part("rifle receiver", new RoundedBoxGeometry(.14, .13, .38, 3, .025), dark, [0, 0, 0], rifle);
+  rifleBody.rotation.y = 0;
+  part("rifle upper", new RoundedBoxGeometry(.12, .045, .32, 2, .012), metal, [0, .078, .015], rifle);
+  part("rifle handguard", new RoundedBoxGeometry(.115, .105, .25, 2, .018), webbing, [0, .012, .29], rifle);
+  part("rifle stock", new RoundedBoxGeometry(.105, .11, .23, 2, .02), materials.wood, [0, 0, -.3], rifle);
+  const barrel = new THREE.Mesh(new THREE.CylinderGeometry(.024, .03, .43, 10), metal);
   barrel.rotation.x = Math.PI / 2;
-  barrel.position.set(.12, 1.12, -.72);
+  barrel.position.set(0, .035, .59);
+  barrel.castShadow = true;
   rifle.add(barrel);
-  const stock = new THREE.Mesh(new THREE.BoxGeometry(.09, .15, .25), materials.wood);
-  stock.position.set(.12, 1.11, .04);
-  rifle.add(stock);
+  const sight = part("rifle sight", new RoundedBoxGeometry(.065, .07, .08, 2, .012), metal, [0, .145, .06], rifle);
+  sight.rotation.x = -.04;
+  part("rifle magazine", new RoundedBoxGeometry(.095, .2, .13, 2, .02), dark, [0, -.16, .03], rifle).rotation.x = -.12;
+  part("rifle grip", new RoundedBoxGeometry(.075, .15, .085, 2, .018), dark, [0, -.135, -.11], rifle).rotation.x = -.24;
+  part("rifle front post", new RoundedBoxGeometry(.025, .12, .025, 2, .006), metal, [0, .105, .49], rifle);
+  part("rifle front ears", new RoundedBoxGeometry(.11, .025, .035, 2, .006), metal, [0, .075, .49], rifle);
+  part("charging handle", new RoundedBoxGeometry(.07, .045, .06, 2, .01), metal, [-.09, .04, -.07], rifle);
+  part("ejection port", new RoundedBoxGeometry(.014, .055, .14, 2, .006), webbing, [.075, .015, .025], rifle);
+  part("selector switch", new THREE.CylinderGeometry(.035, .035, .018, 12), metal, [.075, -.02, -.105], rifle).rotation.z = Math.PI / 2;
+  for (const z of [.17, .24, .31, .38, .45]) {
+    part("handguard vent", new RoundedBoxGeometry(.015, .035, .035, 2, .007), dark, [.061, .015, z], rifle);
+    part("handguard vent", new RoundedBoxGeometry(.015, .035, .035, 2, .007), dark, [-.061, .015, z], rifle);
+  }
+  for (const z of [-.08, .015]) {
+    const pin = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, .015, 12), metal);
+    pin.rotation.z = Math.PI / 2;
+    pin.position.set(.077, -.01, z);
+    rifle.add(pin);
+  }
+  const muzzleFlash = new THREE.Mesh(
+    new THREE.ConeGeometry(.075, .25, 7),
+    new THREE.MeshBasicMaterial({ color: 0xffdd8a, transparent: true, opacity: 0 })
+  );
+  muzzleFlash.rotation.x = -Math.PI / 2;
+  muzzleFlash.position.set(0, .035, .85);
+  muzzleFlash.name = "bot muzzle flash";
+  rifle.add(muzzleFlash);
   group.add(rifle);
+  parts.rifle = rifle;
+
   group.userData.bot = bot;
   group.traverse(object => {
     if (object.isMesh) {
       object.userData.bot = bot;
       object.castShadow = true;
+      object.receiveShadow = true;
     }
   });
   bot.group = group;
-  bot.parts = group.children;
+  bot.parts = Object.values(parts);
+  bot.flashMaterials = [uniform, vest];
   return group;
 }
 
@@ -589,6 +690,20 @@ function createWeapon() {
   const receiver = new THREE.Mesh(new THREE.BoxGeometry(.16, .15, .43), receiverMat);
   receiver.position.set(.07, -.015, -.17);
   weapon.add(receiver);
+  const receiverSide = new THREE.Mesh(new RoundedBoxGeometry(.014, .082, .2, 3, .018), polymer);
+  receiverSide.position.set(.153, -.005, -.19);
+  weapon.add(receiverSide);
+  const ejectionPort = new THREE.Mesh(new RoundedBoxGeometry(.009, .036, .11, 2, .008), metal);
+  ejectionPort.position.set(.164, .018, -.17);
+  weapon.add(ejectionPort);
+  const chargingHandle = new THREE.Mesh(new THREE.CylinderGeometry(.018, .018, .09, 10), metal);
+  chargingHandle.rotation.z = Math.PI / 2;
+  chargingHandle.position.set(.17, .075, -.1);
+  weapon.add(chargingHandle);
+  const fireSelector = new THREE.Mesh(new THREE.CylinderGeometry(.022, .022, .022, 12), metal);
+  fireSelector.rotation.z = Math.PI / 2;
+  fireSelector.position.set(.165, -.045, -.005);
+  weapon.add(fireSelector);
   const upper = new THREE.Mesh(new THREE.BoxGeometry(.14, .045, .37), metal);
   upper.position.set(.07, .065, -.19);
   weapon.add(upper);
@@ -596,17 +711,34 @@ function createWeapon() {
   barrel.rotation.x = Math.PI / 2;
   barrel.position.set(.075, .045, -.58);
   weapon.add(barrel);
-  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(.035, .028, .07, 12), polymer);
+  const muzzle = new THREE.Mesh(new THREE.CylinderGeometry(.038, .03, .1, 12), polymer);
   muzzle.rotation.x = Math.PI / 2;
-  muzzle.position.set(.075, .045, -.85);
+  muzzle.position.set(.075, .045, -.87);
   weapon.add(muzzle);
+  for (let i = 0; i < 4; i++) {
+    const port = new THREE.Mesh(new THREE.BoxGeometry(.008, .018, .035), metal);
+    port.position.set(.075 + (i % 2 ? .025 : -.025), .045 + (i < 2 ? .025 : -.025), -.87);
+    weapon.add(port);
+  }
   const stock = new THREE.Mesh(new THREE.BoxGeometry(.13, .12, .31), polymer);
   stock.position.set(.06, -.015, .18);
   weapon.add(stock);
-  const magazine = new THREE.Mesh(new THREE.BoxGeometry(.1, .23, .14), polymer);
+  const magazine = new THREE.Group();
+  magazine.name = "magazine";
   magazine.position.set(.075, -.17, -.17);
   magazine.rotation.x = -.12;
   weapon.add(magazine);
+  const magBody = new THREE.Mesh(new RoundedBoxGeometry(.105, .24, .15, 3, .022), polymer);
+  magazine.add(magBody);
+  const magFloor = new THREE.Mesh(new RoundedBoxGeometry(.115, .025, .16, 2, .008), metal);
+  magFloor.position.y = -.125;
+  magazine.add(magFloor);
+  for (let i = -1; i <= 1; i++) {
+    const rib = new THREE.Mesh(new RoundedBoxGeometry(.012, .17, .008, 2, .003), receiverMat);
+    rib.position.set(i * .031, 0, .077);
+    magazine.add(rib);
+  }
+  weapon.userData.magazine = magazine;
   const grip = new THREE.Mesh(new THREE.BoxGeometry(.09, .17, .11), polymer);
   grip.position.set(.07, -.15, -.005);
   grip.rotation.x = -.23;
@@ -614,6 +746,21 @@ function createWeapon() {
   const handguard = new THREE.Mesh(new THREE.BoxGeometry(.13, .1, .32), polymer);
   handguard.position.set(.07, -.005, -.48);
   weapon.add(handguard);
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < 7; i++) {
+      const vent = new THREE.Mesh(new RoundedBoxGeometry(.012, .026, .026, 2, .005), metal);
+      vent.position.set(side * .071, -.005, -.59 + i * .038);
+      weapon.add(vent);
+    }
+    const rail = new THREE.Mesh(new RoundedBoxGeometry(.02, .042, .29, 2, .006), metal);
+    rail.position.set(side * .072, .058, -.48);
+    weapon.add(rail);
+  }
+  for (let i = 0; i < 9; i++) {
+    const tooth = new THREE.Mesh(new THREE.BoxGeometry(.15, .017, .018), metal);
+    tooth.position.set(.07, .089, -.55 + i * .035);
+    weapon.add(tooth);
+  }
   const sight = new THREE.Mesh(new THREE.BoxGeometry(.055, .06, .08), metal);
   sight.position.set(.07, .115, -.32);
   weapon.add(sight);
@@ -637,6 +784,16 @@ function createWeapon() {
   rearArm.position.set(.22, -.38, .05);
   rearArm.rotation.z = -.2;
   weapon.add(rearArm);
+  const gripHand = new THREE.Mesh(new RoundedBoxGeometry(.12, .12, .1, 3, .035), glove);
+  gripHand.position.set(.095, -.12, -.005);
+  weapon.add(gripHand);
+  const chargingHand = new THREE.Mesh(new RoundedBoxGeometry(.11, .1, .13, 3, .032), glove);
+  chargingHand.position.set(.005, -.175, -.42);
+  weapon.add(chargingHand);
+  const sling = new THREE.Mesh(new THREE.TorusGeometry(.18, .014, 5, 20, Math.PI * 1.25), sleeve);
+  sling.position.set(.16, -.08, .08);
+  sling.rotation.set(Math.PI / 2, 0, -.42);
+  weapon.add(sling);
 
   muzzleLight = new THREE.PointLight(0xffc477, 0, 5, 2);
   muzzleLight.position.set(.075, .045, -.9);
@@ -648,7 +805,7 @@ function createWeapon() {
   weapon.add(flashMesh);
 
   weapon.scale.setScalar(.65);
-  weapon.position.set(.3, -.33, -.72);
+  weapon.position.set(.3, -.33, -.82);
   camera.add(weapon);
   receiverMat.emissive.setHex(0x121712);
   receiverMat.emissiveIntensity = .65;
@@ -762,6 +919,7 @@ function resetMatch() {
       direction: random(0, Math.PI * 2),
       speed: random(.52, .9),
       phase: random(0, Math.PI * 2),
+      shotFlash: 0,
       uniform: palette[0],
       vest: palette[1],
       pants: palette[2],
@@ -901,8 +1059,8 @@ function movePlayer(dt) {
   const sprint = keys.has("ShiftLeft") || keys.has("ShiftRight");
   const speed = sprint ? 7.2 : 4.8;
   const yaw = camera.rotation.y;
-  const dx = (Math.sin(yaw) * forward + Math.cos(yaw) * sideways) * speed * dt;
-  const dz = (-Math.cos(yaw) * forward + Math.sin(yaw) * sideways) * speed * dt;
+  const dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * sideways) * speed * dt;
+  const dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * sideways) * speed * dt;
   const nextX = clamp(player.x + dx, 1, WORLD - 1);
   const nextZ = clamp(player.z + dz, 1, WORLD - 1);
   if (!intersectsBuilding(nextX, player.z, .29) && !intersectsTree(nextX, player.z, .29)) player.x = nextX;
@@ -1062,7 +1220,10 @@ function updateBots(dt) {
         }
       }
       if (distance < 25 && bot.attack <= 0) {
-        if (Math.random() > .3) hurt(random(4, 8));
+        if (Math.random() > .3) {
+          hurt(random(4, 8));
+          bot.shotFlash = .085;
+        }
         bot.attack = random(1.2, 2.2);
       }
     } else {
@@ -1083,17 +1244,24 @@ function updateBots(dt) {
       }
     }
     bot.phase += dt * (moving ? 9 : 2);
+    bot.shotFlash = Math.max(0, bot.shotFlash - dt);
+    const hitGlow = bot.hitFlash > 0 ? 0x633a20 : 0x000000;
+    for (const material of bot.flashMaterials) material.emissive.setHex(hitGlow);
     bot.group.position.set(bot.x, 0, bot.z);
     for (const part of bot.parts) {
-      if (part.name === "leftLeg") part.rotation.x = Math.sin(bot.phase) * (moving ? .45 : .025);
-      if (part.name === "rightLeg") part.rotation.x = Math.sin(bot.phase + Math.PI) * (moving ? .45 : .025);
-      if (part.name === "leftArm") part.rotation.x = Math.sin(bot.phase + Math.PI) * (moving ? .28 : .03);
-      if (part.name === "rightArm") part.rotation.x = Math.sin(bot.phase) * (moving ? .28 : .03);
-      if (part.isMesh && part.material?.emissive) {
-        part.material.emissive.setHex(bot.hitFlash > 0 ? 0x9c5034 : 0x000000);
-        part.material.emissiveIntensity = bot.hitFlash > 0 ? .7 : 0;
+      if (part.name === "leftLeg") part.rotation.x = Math.sin(bot.phase) * (moving ? .39 : .012);
+      if (part.name === "rightLeg") part.rotation.x = Math.sin(bot.phase + Math.PI) * (moving ? .39 : .012);
+      if (part.name === "leftCalf") part.rotation.x = Math.max(0, Math.sin(bot.phase + .5)) * (moving ? .48 : 0);
+      if (part.name === "rightCalf") part.rotation.x = Math.max(0, Math.sin(bot.phase + Math.PI + .5)) * (moving ? .48 : 0);
+      if (part.name === "leftArm" || part.name === "rightArm") {
+        const basePose = part.userData.walkPose;
+        part.rotation.x = basePose.x + Math.sin(bot.phase + (part.name === "leftArm" ? Math.PI : 0)) * (moving ? .07 : .01);
+        part.rotation.z = basePose.z;
       }
+      if (part.name === "rifle") part.position.z = .34 + bot.shotFlash * .42;
     }
+    const botFlash = bot.group.getObjectByName("bot muzzle flash");
+    if (botFlash) botFlash.material.opacity = bot.shotFlash > 0 ? .92 : 0;
   }
 }
 
@@ -1126,6 +1294,12 @@ function updateWeapon(dt, moving) {
   weapon.position.z = -.57 + recoil * .72;
   weapon.rotation.x = -.025 + recoil * 1.15 + bob * .42;
   weapon.rotation.y = sideBob * 1.4;
+  const reloadProgress = reloadTimer > 0 ? 1 - reloadTimer / 1.5 : 0;
+  const reloadDip = reloadTimer > 0 ? Math.sin(clamp(reloadProgress, 0, 1) * Math.PI) : 0;
+  const magazine = weapon.userData.magazine;
+  magazine.position.y = -.17 - reloadDip * .24;
+  magazine.rotation.x = -.12 - reloadDip * .24;
+  weapon.rotation.z = reloadDip * .045;
   camera.position.set(player.x, 1.68 + bob * .28, player.z);
   camera.rotation.x = clamp(player.pitch + recoil * .8, -1.35, 1.35);
   swayX *= Math.max(0, 1 - dt * 4);
