@@ -24,5 +24,6 @@ Create a distributable build with `npm run build`. The production site is writte
 - **R** — reload
 - **E** — use a medkit
 - **Esc** — release the mouse and pause; click the game to resume
+- **Touchscreens** — use the left joystick to move, drag the right side to aim, and hold **FIRE** to shoot. On-screen buttons reload and use a medkit.
 
 Eliminate all nine opponents while collecting ammo and medkits. Stay inside the shrinking safe zone.

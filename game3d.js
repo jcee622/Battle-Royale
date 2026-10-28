@@ -18,7 +18,10 @@ const bots = [];
 const scenery = [];
 const raycaster = new THREE.Raycaster();
 const aimPoint = new THREE.Vector2();
+const movementForward = new THREE.Vector3();
+const movementRight = new THREE.Vector3();
 const clock = new THREE.Clock();
+const touchMode = window.matchMedia("(pointer: coarse)").matches || navigator.maxTouchPoints > 0;
 const materials = {};
 const buildingBounds = [];
 
@@ -45,7 +48,14 @@ let swayY = 0;
 let damageTimer = 0;
 let lastHudTick = 0;
 let fallbackInput = false;
+let pointerLockActive = false;
 let dragging = false;
+let touchLookPointer = null;
+let touchMovePointer = null;
+let touchFirePointer = null;
+let touchFiring = false;
+let touchFireTimer = 0;
+const touchMovement = { forward: 0, sideways: 0 };
 let lastMouseX = 0;
 let lastMouseY = 0;
 let sun;
@@ -900,8 +910,12 @@ function showNotice(message) {
 function resetMatch() {
   clearMatchEntities();
   player = { ...findSpawn(), health: 100, armor: 50, ammo: 30, reserve: 120, medkits: 1, pitch: 0 };
+  touchMovement.forward = 0;
+  touchMovement.sideways = 0;
+  touchFiring = false;
+  touchFireTimer = 0;
   camera.position.set(player.x, 1.68, player.z);
-  camera.rotation.set(0, Math.atan2(WORLD / 2 - player.x, player.z - WORLD / 2), 0);
+  camera.rotation.set(0, Math.atan2(player.x - WORLD / 2, player.z - WORLD / 2), 0);
   for (let i = 0; i < BOT_COUNT; i++) {
     const palette = [
       [0x4c5948, 0x47483c, 0x343a30],
@@ -1045,8 +1059,10 @@ function intersectsTree(x, z, radius) {
 }
 
 function movePlayer(dt) {
-  let forward = Number(keys.has("KeyW") || keys.has("ArrowUp")) - Number(keys.has("KeyS") || keys.has("ArrowDown"));
-  let sideways = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft"));
+  let forward = Number(keys.has("KeyW") || keys.has("ArrowUp")) - Number(keys.has("KeyS") || keys.has("ArrowDown")) + touchMovement.forward;
+  let sideways = Number(keys.has("KeyD") || keys.has("ArrowRight")) - Number(keys.has("KeyA") || keys.has("ArrowLeft")) + touchMovement.sideways;
+  forward = clamp(forward, -1, 1);
+  sideways = clamp(sideways, -1, 1);
   const moving = forward !== 0 || sideways !== 0;
   if (!moving) {
     swayX *= Math.max(0, 1 - dt * 5);
@@ -1058,9 +1074,12 @@ function movePlayer(dt) {
   sideways /= length;
   const sprint = keys.has("ShiftLeft") || keys.has("ShiftRight");
   const speed = sprint ? 7.2 : 4.8;
-  const yaw = camera.rotation.y;
-  const dx = (-Math.sin(yaw) * forward + Math.cos(yaw) * sideways) * speed * dt;
-  const dz = (-Math.cos(yaw) * forward - Math.sin(yaw) * sideways) * speed * dt;
+  camera.getWorldDirection(movementForward);
+  movementForward.y = 0;
+  movementForward.normalize();
+  movementRight.crossVectors(movementForward, camera.up).normalize();
+  const dx = (movementForward.x * forward + movementRight.x * sideways) * speed * dt;
+  const dz = (movementForward.z * forward + movementRight.z * sideways) * speed * dt;
   const nextX = clamp(player.x + dx, 1, WORLD - 1);
   const nextZ = clamp(player.z + dz, 1, WORLD - 1);
   if (!intersectsBuilding(nextX, player.z, .29) && !intersectsTree(nextX, player.z, .29)) player.x = nextX;
@@ -1147,6 +1166,8 @@ function hurt(amount) {
 function finish(won) {
   if (!running) return;
   running = false;
+  touchFiring = false;
+  $("#touchControls").classList.remove("active");
   document.exitPointerLock?.();
   $("#resultTitle").textContent = won ? "VICTORY" : "ELIMINATED";
   $("#resultTitle").style.color = won ? "var(--acid)" : "#ff7864";
@@ -1308,8 +1329,17 @@ function updateWeapon(dt, moving) {
 
 function animate(dt) {
   time += dt;
+  if (touchFiring) {
+    touchFireTimer -= dt;
+    if (touchFireTimer <= 0) {
+      fire();
+      touchFireTimer = .14;
+      if (player.ammo <= 0) touchFiring = false;
+    }
+  }
   const moving = keys.has("KeyW") || keys.has("KeyA") || keys.has("KeyS") || keys.has("KeyD") ||
-    keys.has("ArrowUp") || keys.has("ArrowDown") || keys.has("ArrowLeft") || keys.has("ArrowRight");
+    keys.has("ArrowUp") || keys.has("ArrowDown") || keys.has("ArrowLeft") || keys.has("ArrowRight") ||
+    Math.abs(touchMovement.forward) > .05 || Math.abs(touchMovement.sideways) > .05;
   movePlayer(dt);
   updateBots(dt);
   updatePickups(dt);
@@ -1359,7 +1389,11 @@ function startMatch() {
   paused = false;
   $("#startScreen").classList.add("hidden");
   $("#endScreen").classList.add("hidden");
-  requestCapture();
+  $("#touchControls").classList.toggle("active", touchMode);
+  if (touchMode) {
+    fallbackInput = true;
+    showNotice("MOVE · DRAG RIGHT SIDE TO AIM · HOLD FIRE");
+  } else requestCapture();
 }
 
 function requestCapture() {
@@ -1393,6 +1427,84 @@ function boot() {
   $("#zoneTimer").textContent = formatTime(zoneTimer);
   $("#aliveCount").textContent = String(BOT_COUNT + 1);
   window.addEventListener("resize", resize);
+  const movePad = $("#movePad");
+  const moveStick = $("#moveStick");
+  const fireButton = $("#fireButton");
+  const updateTouchMovement = event => {
+    const bounds = movePad.getBoundingClientRect();
+    const radius = bounds.width / 2 - 25;
+    const dx = event.clientX - (bounds.left + bounds.width / 2);
+    const dy = event.clientY - (bounds.top + bounds.height / 2);
+    const distance = Math.min(Math.hypot(dx, dy), radius);
+    const angle = Math.atan2(dy, dx);
+    const x = Math.cos(angle) * distance;
+    const y = Math.sin(angle) * distance;
+    touchMovement.sideways = x / radius;
+    touchMovement.forward = -y / radius;
+    moveStick.style.transform = `translate(calc(-50% + ${x}px), calc(-50% + ${y}px))`;
+  };
+  movePad.addEventListener("pointerdown", event => {
+    if (!running || paused || event.pointerType !== "touch") return;
+    event.preventDefault();
+    touchMovePointer = event.pointerId;
+    movePad.setPointerCapture(event.pointerId);
+    updateTouchMovement(event);
+  });
+  movePad.addEventListener("pointermove", event => {
+    if (event.pointerId === touchMovePointer) updateTouchMovement(event);
+  });
+  const releaseMove = event => {
+    if (event.pointerId !== touchMovePointer) return;
+    touchMovePointer = null;
+    touchMovement.forward = 0;
+    touchMovement.sideways = 0;
+    moveStick.style.transform = "translate(-50%, -50%)";
+  };
+  movePad.addEventListener("pointerup", releaseMove);
+  movePad.addEventListener("pointercancel", releaseMove);
+  movePad.addEventListener("lostpointercapture", releaseMove);
+  fireButton.addEventListener("pointerdown", event => {
+    if (!running || paused || event.pointerType !== "touch") return;
+    event.preventDefault();
+    touchFirePointer = event.pointerId;
+    fireButton.setPointerCapture(event.pointerId);
+    touchFiring = true;
+    touchFireTimer = .14;
+    fire();
+  });
+  const releaseFire = event => {
+    if (event.pointerId !== touchFirePointer) return;
+    touchFirePointer = null;
+    touchFiring = false;
+  };
+  fireButton.addEventListener("pointerup", releaseFire);
+  fireButton.addEventListener("pointercancel", releaseFire);
+  fireButton.addEventListener("lostpointercapture", releaseFire);
+  $("#reloadButton").addEventListener("click", reload);
+  $("#medkitButton").addEventListener("click", useMedkit);
+  canvas.addEventListener("pointerdown", event => {
+    if (!running || paused || event.pointerType !== "touch" || event.clientX < innerWidth / 2) return;
+    event.preventDefault();
+    touchLookPointer = event.pointerId;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+    canvas.setPointerCapture(event.pointerId);
+  });
+  canvas.addEventListener("pointermove", event => {
+    if (event.pointerId !== touchLookPointer) return;
+    const dx = event.clientX - lastMouseX;
+    const dy = event.clientY - lastMouseY;
+    lastMouseX = event.clientX;
+    lastMouseY = event.clientY;
+    camera.rotation.y -= dx * .00215;
+    player.pitch = clamp(player.pitch - dy * .00185, -1.35, 1.35);
+    camera.rotation.x = player.pitch;
+  });
+  const releaseLook = event => {
+    if (event.pointerId === touchLookPointer) touchLookPointer = null;
+  };
+  canvas.addEventListener("pointerup", releaseLook);
+  canvas.addEventListener("pointercancel", releaseLook);
   document.addEventListener("keydown", event => {
     keys.add(event.code);
     if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(event.code)) event.preventDefault();
@@ -1419,10 +1531,12 @@ function boot() {
     swayY += dy * .0002;
   });
   document.addEventListener("pointerlockchange", () => {
-    if (running && document.pointerLockElement !== canvas) {
+    const captured = document.pointerLockElement === canvas;
+    if (running && pointerLockActive && !captured) {
       paused = true;
       showNotice("PAUSED · CLICK TO RESUME");
     }
+    pointerLockActive = captured;
   });
   canvas.addEventListener("click", () => {
     if (!running) return;
